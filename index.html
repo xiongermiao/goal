@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cc的小助理</title>
+<link rel="stylesheet" href="style.css">
+<script src="supabase-client.js"></script>
+</head>
+<body>
+
+<!-- Login Panel -->
+<div id="loginPanel" class="login-overlay" style="display:none;">
+  <div class="login-box">
+    <div class="login-header">
+      <div class="login-logo">🤖</div>
+      <div class="login-title">cc的小助理</div>
+      <div class="login-subtitle">登录后开启云端同步</div>
+    </div>
+    <div class="login-form-group">
+      <label>邮箱</label>
+      <input type="email" id="loginEmail" placeholder="请输入邮箱" autocomplete="email">
+    </div>
+    <div class="login-form-group">
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="请输入密码（至少6位）" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-btn-row">
+      <button class="btn btn-primary" onclick="handleLogin()">登录</button>
+      <button class="btn btn-outline" onclick="handleRegister()">注册</button>
+    </div>
+    <div class="login-hint">未登录也可使用，数据保存在本地浏览器<br>登录后可在多设备间同步数据</div>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="btn btn-sm" style="color:var(--text3);" onclick="hideLoginPanel()">先看看本地数据 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- User Bar -->
+<div id="userBar" class="user-bar" style="display:none;">
+  <span class="sync-badge local" id="syncBadge">本地模式</span>
+  <span class="user-email" id="userEmailText"></span>
+  <button class="btn upload-btn" id="uploadBtn" onclick="uploadLocalToCloud()" style="display:none;">上传本地数据</button>
+  <button class="btn btn-outline btn-sm" id="loginBtn" onclick="showLoginPanel()">登录</button>
+  <button class="btn btn-outline btn-sm" id="logoutBtn" onclick="handleLogout()" style="display:none;">登出</button>
+</div>
+
+<div class="container">
+
+  <div class="main-layout">
+
+    <!-- Content -->
+    <div class="content">
+
+  <!-- Tag Filter Dropdown (global, visible on both tabs) -->
+  <div class="tag-filter-wrap" id="tagFilterWrap">
+    <div class="tag-filter-trigger" id="tagFilterTrigger" onclick="toggleTagDropdown()">
+      <span class="current-dot" id="tagFilterDot"></span>
+      <span class="current-label" id="tagFilterLabel">全部标签</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="tag-dropdown" id="tagDropdown"></div>
+  </div>
+
+  <!-- Tab1: 今日一览 -->
+  <div class="tab-panel active" id="panelToday">
+    <div class="quick-checkin" id="quickCheckin" style="display:none;"></div>
+    <div class="today-todos" id="todayTodos" style="display:none;"></div>
+  </div><!-- /panelToday -->
+
+  <!-- Tab2: 目标管理 -->
+  <div class="tab-panel" id="panelTasks">
+
+  <!-- Group B: Summary Cards -->
+  <div class="tasks-section-card">
+  <div class="summary-cards" id="summaryCards">
+    <div class="summary-card type-checkin" data-filter="checkin">
+      <div class="card-label">打卡型</div>
+      <div class="card-num" id="cardCheckinNum">0</div>
+    </div>
+    <div class="summary-card type-progress" data-filter="progress">
+      <div class="card-label">进度型</div>
+      <div class="card-num" id="cardProgressNum">0</div>
+    </div>
+    <div class="summary-card status-overdue" data-filter="overdue">
+      <div class="card-label">已超时</div>
+      <div class="card-num" id="cardOverdueNum">0</div>
+    </div>
+    <div class="summary-card status-urgent" data-filter="urgent">
+      <div class="card-label">3日后到期</div>
+      <div class="card-num" id="cardUrgentNum">0</div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Group C: Status Index Tabs + Task List Card -->
+  <div class="tasks-list-wrap">
+  <div class="status-index-tabs" id="statusFilterBar">
+    <div class="status-index-chip active" data-status="active" onclick="setStatusFilter('active')">进行中</div>
+    <div class="status-index-chip status-pending-chip" data-status="pending" onclick="setStatusFilter('pending')">待开始</div>
+    <div class="status-index-chip status-completed-chip" data-status="completed" onclick="setStatusFilter('completed')">已完成</div>
+    <div class="status-index-chip status-cancelled-chip" data-status="cancelled" onclick="setStatusFilter('cancelled')">已取消</div>
+  </div>
+  <div class="tasks-list-card">
+
+  <!-- Notification Permission -->
+  <div class="notify-banner" id="notifyBanner" style="display:none">
+    <span>🔔 开启浏览器通知，我能帮你盯紧打卡和截止日期</span>
+    <button class="btn btn-primary btn-sm" onclick="requestNotificationPermission()">开启提醒</button>
+    <button class="notify-close" onclick="dismissNotifyBanner()" title="不再提示">✕</button>
+  </div>
+
+  <!-- Task List -->
+  <div class="card-list" id="taskList"></div>
+
+  </div><!-- /tasks-list-card -->
+  </div><!-- /tasks-list-wrap -->
+
+  </div><!-- /panelTasks -->
+
+  <!-- Panel 3: Detail View -->
+  <div class="tab-panel" id="panelDetail">
+    <div class="detail-header">
+      <button class="detail-back" onclick="closeDetailPage()" aria-label="返回"></button>
+      <span class="detail-title" id="detailPageTitle"></span>
+      <div id="detailMenuPlaceholder" style="margin-left:auto;flex-shrink:0;"></div>
+    </div>
+    <div class="detail-body" id="detailPageBody"></div>
+  </div>
+
+  <button class="fab" id="fabNewTask" onclick="openTaskModal()" title="新建目标">+</button>
+
+    </div><!-- /content -->
+  </div><!-- /main-layout -->
+
+  <!-- Bottom Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('today')"><span class="tab-icon">⚡</span>to do</button>
+    <button class="tab-btn" onclick="switchTab('tasks')"><span class="tab-icon">📋</span>目标管理</button>
+  </div>
+
+</div>
+
+<!-- Task Form Modal -->
+<div class="modal-overlay" id="taskModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">新建目标</span>
+      <button class="modal-close" onclick="closeTaskModal()">✕</button>
+    </div>
+
+    <!-- Type Selector -->
+    <div class="type-selector" id="typeSelector">
+      <div class="type-option active" data-type="progress" onclick="switchType('progress')">
+        <span class="type-option-icon">📊</span>
+        <span class="type-option-label">进度型</span>
+        <span class="type-option-desc">目标进度追踪</span>
+      </div>
+      <div class="type-option" data-type="checkin" onclick="switchType('checkin')">
+        <span class="type-option-icon">✅</span>
+        <span class="type-option-label">打卡型</span>
+        <span class="type-option-desc">每日/每周习惯打卡</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">目标名称 *</label>
+      <input type="text" class="form-input" id="taskTitle" placeholder="写下一个简短的目标名称吧">
+    </div>
+    <div class="form-group">
+      <label class="form-label">描述</label>
+      <textarea class="form-textarea" id="taskDesc" placeholder="简要描述这个目标..."></textarea>
+    </div>
+
+    <!-- Tags -->
+    <div class="form-group">
+      <label class="form-label">🏷️ 标签 <span style="font-weight:400;font-size:12px;color:var(--text3)">（选一个）</span></label>
+      <div class="tag-picker" id="tagPicker"></div>
+      <div class="tag-picker-empty" id="tagPickerEmpty">还没有标签，请点击「管理标签」创建</div>
+    </div>
+
+    <!-- Checkin-specific fields -->
+    <div id="checkinFields" style="display:none;">
+      <div class="form-row" style="grid-template-columns: auto auto; justify-content: flex-start;">
+        <div class="form-group">
+          <label class="form-label">打卡频率</label>
+          <select class="form-select form-select-sm" id="taskFrequency" onchange="updateTargetCountMax()">
+            <option value="daily">每天</option>
+            <option value="weekly">每周</option>
+            <option value="monthly">每月</option>
+            <option value="quarterly">每季</option>
+            <option value="yearly">每年</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">目标次数</label>
+          <input type="number" class="form-input" id="taskTargetCount" value="3" min="1" max="30" style="max-width: 100px;">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top: 14px;">
+        <label class="form-label">优先级</label>
+        <select class="form-select form-select-sm" id="taskPriorityC">
+          <option value="p2">P2</option>
+          <option value="p0">P0</option>
+          <option value="p1">P1</option>
+          <option value="p3">P3</option>
+          </select>
+        </div>
+    </div>
+
+    <!-- Common date fields - visible for both types -->
+    <div class="form-row" id="dateFields">
+      <div class="form-group">
+        <label class="form-label">开始日期</label>
+        <input type="date" class="form-input" id="taskStart">
+      </div>
+      <div class="form-group">
+        <label class="form-label">截止日期 <span id="dateRequired" style="font-weight:400;font-size:12px;color:var(--text3)">*</span></label>
+        <input type="date" class="form-input" id="taskEnd">
+      </div>
+    </div>
+
+    <!-- Progress-specific fields -->
+    <div id="progressFields">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">优先级</label>
+          <select class="form-select form-select-sm" id="taskPriority">
+            <option value="p2">P2</option>
+            <option value="p0">P0</option>
+            <option value="p1">P1</option>
+            <option value="p3">P3</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">当前进度 (%)</label>
+          <input type="number" class="form-input" id="taskProgress" value="0" min="0" max="100">
+        </div>
+      </div>
+    </div>
+
+    <input type="hidden" id="taskEditId">
+    <input type="hidden" id="taskEditType" value="progress">
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-primary" style="flex:1;text-align:center" onclick="saveTask()" id="saveTaskBtn">创建</button>
+      <button class="btn btn-outline" onclick="closeTaskModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tag Management Modal -->
+<div class="modal-overlay" id="tagManagerModal" style="display:none">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <span class="modal-title">🏷️ 管理标签</span>
+      <button class="modal-close" onclick="closeTagManager()">✕</button>
+    </div>
+    <div id="tagManagerList" style="max-height:360px;overflow-y:auto;margin-bottom:4px;"></div>
+    <div class="tag-mgmt-new-row">
+      <input type="text" id="newTagName" placeholder="输入新标签名，回车创建" maxlength="12">
+      <button class="btn btn-primary btn-sm" onclick="createTag()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<!-- Scripts: load order matters (supabase-client -> data -> ui -> todo) -->
+<script src="data.js"></script>
+<script src="ui.js"></script>
+<script src="todo.js"></script>
+</body>
+</html>
