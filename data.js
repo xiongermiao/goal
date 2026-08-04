@@ -115,6 +115,7 @@ async function loadTasksFromCloud() {
   if (!goals || goals.length === 0) {
     const localTasks = loadTasks();
     if (localTasks && localTasks.length > 0) {
+      cloudTaskIds = new Set();
       tasks = localTasks;
       // Upload local data to cloud
       await saveTasksToCloud(localTasks);
@@ -155,6 +156,7 @@ async function loadTasksFromCloud() {
       createdAt: g.created_at
     };
   });
+  cloudTaskIds = new Set((goals || []).map(g => g.id));
 }
 
 function buildTodoTree(todos) {
@@ -188,6 +190,21 @@ function buildTodoTree(todos) {
 async function saveTasksToCloud(tasksArr) {
   if (!supabase || !currentUser) return;
   const userId = currentUser.id;
+  // 删除云端中本地已删除的目标（含其子任务/打卡/笔记）
+  const currentIds = new Set(tasksArr.map(t => t.id));
+  const deletedIds = [...cloudTaskIds].filter(id => !currentIds.has(id));
+  let deleteOk = true;
+  for (const delId of deletedIds) {
+    await supabase.from('todos').delete().eq('goal_id', delId);
+    await supabase.from('checkins').delete().eq('goal_id', delId);
+    await supabase.from('notes').delete().eq('goal_id', delId);
+    const { error: delErr } = await supabase.from('goals').delete().eq('id', delId);
+    if (delErr) {
+      console.error('云端删除目标失败:', delErr);
+      showToast('云端删除失败，请检查网络');
+      deleteOk = false;
+    }
+  }
   for (const t of tasksArr) {
     const goalRow = {
       id: t.id,
@@ -206,28 +223,29 @@ async function saveTasksToCloud(tasksArr) {
     };
     const { error: gErr } = await supabase.from('goals').upsert(goalRow, { onConflict: 'id' });
     if (gErr) { console.error('云端保存目标失败:', gErr); showToast('云端保存失败，请检查网络'); return; }
-    // Sync todos
+    // Sync todos（先清空云端该目标的子任务，再按本地实际内容写入）
+    await supabase.from('todos').delete().eq('goal_id', t.id);
     if (t.todos && t.todos.length > 0) {
       const flatTodos = flattenTodos(t.todos, t.id, userId);
-      await supabase.from('todos').delete().eq('goal_id', t.id);
       const { error: tiErr } = await supabase.from('todos').insert(flatTodos);
       if (tiErr) console.error('云端保存子任务失败:', tiErr);
     }
     // Sync checkins
+    await supabase.from('checkins').delete().eq('goal_id', t.id);
     if (t.checkins && t.checkins.length > 0) {
-      await supabase.from('checkins').delete().eq('goal_id', t.id);
       const checkinRows = t.checkins.map(c => ({ goal_id: t.id, user_id: userId, created_at: c }));
       const { error: ciErr } = await supabase.from('checkins').insert(checkinRows);
       if (ciErr) console.error('云端保存打卡记录失败:', ciErr);
     }
     // Sync notes
+    await supabase.from('notes').delete().eq('goal_id', t.id);
     if (t.notes && t.notes.length > 0) {
-      await supabase.from('notes').delete().eq('goal_id', t.id);
       const noteRows = t.notes.map(n => ({ goal_id: t.id, user_id: userId, date: n.date || fmtLocalDay(new Date()), content: n.text }));
       const { error: niErr } = await supabase.from('notes').insert(noteRows);
       if (niErr) console.error('云端保存笔记失败:', niErr);
     }
   }
+  if (deleteOk) cloudTaskIds = currentIds;
 }
 
 function flattenTodos(todos, goalId, userId, parentId = null, result = [], order = 0) {
@@ -350,6 +368,7 @@ function getInitialStatus(startDate) {
 
 // ===== STATE =====
 let tasks = loadTasks();
+let cloudTaskIds = new Set();
 
 let currentFormType = 'progress';
 let currentTag = '';
@@ -464,4 +483,3 @@ function getUrgentTasks() {
     return end >= now && end <= in3days;
   });
 }
-
