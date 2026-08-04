@@ -65,8 +65,8 @@
 
   <!-- Tab1: 今日一览 -->
   <div class="tab-panel active" id="panelToday">
-    <div class="quick-checkin" id="quickCheckin" style="display:none;"></div>
-    <div class="today-todos" id="todayTodos" style="display:none;"></div>
+    <div class="quick-checkin" id="quickCheckin" style="display:block;"><div class="quick-checkin-header">⚡ 待打卡</div><div class="today-todos-empty">⏳ 加载中...</div></div>
+    <div class="today-todos" id="todayTodos" style="display:block;"><div class="today-todos-header">📋 目标to do</div><div class="today-todos-empty">⏳ 加载中...</div></div>
   </div><!-- /panelToday -->
 
   <!-- Tab2: 目标管理 -->
@@ -112,7 +112,7 @@
   </div>
 
   <!-- Task List -->
-  <div class="card-list" id="taskList"></div>
+  <div class="card-list" id="taskList"><div class="today-todos-empty">⏳ 加载中...</div></div>
 
   </div><!-- /tasks-list-card -->
   </div><!-- /tasks-list-wrap -->

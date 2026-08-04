@@ -84,8 +84,11 @@
       body: this._method !== 'GET' && this._method !== 'DELETE' && this._method !== 'HEAD' ? this._body : undefined
     }).then(function(r) {
       if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
-      if (r.status === 204) return { data: null, error: null };
-      return r.json().then(function(data) { return { data: data, error: null }; });
+      return r.text().then(function(t) {
+        var data = null;
+        if (t) { try { data = JSON.parse(t); } catch (e) { throw new Error(t); } }
+        return { data: data, error: null };
+      });
     }).catch(function(e) { return { data: null, error: e }; }).then(function(result) {
       return onFulfilled ? onFulfilled(result) : result;
     }, onRejected);
