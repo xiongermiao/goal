@@ -111,14 +111,15 @@ async function loadTasksFromCloud() {
     tasks = loadTasks();
     return;
   }
-  // If cloud is empty, try localStorage fallback
+  // If cloud is empty, try localStorage fallback (skip demo data)
   if (!goals || goals.length === 0) {
     const localTasks = loadTasks();
-    if (localTasks && localTasks.length > 0) {
+    const realTasks = (localTasks || []).filter(t => !t.isDemo);
+    if (realTasks.length > 0) {
       cloudTaskIds = new Set();
-      tasks = localTasks;
+      tasks = realTasks;
       // Upload local data to cloud
-      await saveTasksToCloud(localTasks);
+      await saveTasksToCloud(realTasks);
       return;
     }
   }
@@ -269,7 +270,7 @@ function flattenTodos(todos, goalId, userId, parentId = null, result = [], order
 
 async function uploadLocalToCloud() {
   if (!currentUser) { showToast('请先登录'); return; }
-  const localTasks = loadTasks();
+  const localTasks = (loadTasks() || []).filter(t => !t.isDemo);
   if (localTasks.length === 0) { showToast('本地没有数据'); return; }
   showToast('正在上传...');
   await saveTasksToCloud(localTasks);

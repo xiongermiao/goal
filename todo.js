@@ -727,6 +727,7 @@ function initDemoData() {
       createdAt: new Date(Date.now()-14*86400000).toISOString()
     }
   ];
+  tasks.forEach(t => { t.isDemo = true; });
   saveTasks(tasks);
   refreshAll();
 }
