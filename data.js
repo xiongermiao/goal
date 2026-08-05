@@ -101,21 +101,24 @@ function updateUserBar() {
 async function loadTasksFromCloud() {
   if (!supabase || !currentUser) return;
   const userId = currentUser.id;
-  // Load goals
-  const { data: goals, error: gErr } = await supabase.from('goals').select('*').eq('user_id', userId);
+  // Load goals/todos/checkins/notes in parallel to speed up first render
+  const [goalsRes, todosRes, checkinsRes, notesRes] = await Promise.all([
+    supabase.from('goals').select('*').eq('user_id', userId),
+    supabase.from('todos').select('*').eq('user_id', userId),
+    supabase.from('checkins').select('*').eq('user_id', userId),
+    supabase.from('notes').select('*').eq('user_id', userId)
+  ]);
+  const { data: goals, error: gErr } = goalsRes;
+  const { data: todos, error: tErr } = todosRes;
+  const { data: checkins, error: cErr } = checkinsRes;
+  const { data: notes, error: nErr } = notesRes;
   if (gErr) {
     console.error('load goals error:', gErr);
     tasks = [];
     return;
   }
-  // Load todos
-  const { data: todos, error: tErr } = await supabase.from('todos').select('*').eq('user_id', userId);
   if (tErr) { console.error('load todos error:', tErr); }
-  // Load checkins
-  const { data: checkins, error: cErr } = await supabase.from('checkins').select('*').eq('user_id', userId);
   if (cErr) { console.error('load checkins error:', cErr); }
-  // Load notes
-  const { data: notes, error: nErr } = await supabase.from('notes').select('*').eq('user_id', userId);
   if (nErr) { console.error('load notes error:', nErr); }
 
   // Assemble tasks
