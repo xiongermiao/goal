@@ -274,7 +274,7 @@ function flattenTodos(todos, goalId, userId, parentId = null, result = [], order
 
 async function saveTasks(tasksArr) {
   if (isCloudMode && currentUser) {
-    await saveTasksToCloud(tasksArr);
+    await flushCloudSave();
   }
 }
 
@@ -340,6 +340,22 @@ function getInitialStatus(startDate) {
 let tasks = [];
 let cloudTaskIds = new Set();
 let cloudSyncing = false;
+let cloudSaveRunning = false;
+let cloudSaveQueued = false;
+
+// 串行化云端保存：连续操作合并为一次最新状态保存，避免 delete+insert 并发撞主键
+async function flushCloudSave() {
+  if (cloudSaveRunning) { cloudSaveQueued = true; return; }
+  cloudSaveRunning = true;
+  try {
+    do {
+      cloudSaveQueued = false;
+      await saveTasksToCloud(tasks);
+    } while (cloudSaveQueued);
+  } finally {
+    cloudSaveRunning = false;
+  }
+}
 
 let currentFormType = 'progress';
 let currentTag = '';
