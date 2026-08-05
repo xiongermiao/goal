@@ -61,7 +61,8 @@ async function handleLogout() {
   await supabase.auth.signOut();
   currentUser = null;
   isCloudMode = false;
-  tasks = loadTasks(); // back to local
+  tasks = [];
+  cloudTaskIds = new Set();
   updateUserBar();
   refreshAll();
   showToast('已登出');
@@ -89,7 +90,8 @@ function updateUserBar() {
     syncBadge.className = 'sync-badge synced';
     loginBtn.style.display = 'none';
     logoutBtn.style.display = '';
-    uploadBtn.style.display = tasks.length > 0 ? '' : 'none';
+    const hasLocalData = (loadTasks() || []).some(t => !t.isDemo);
+    uploadBtn.style.display = hasLocalData ? '' : 'none';
   } else {
     emailText.textContent = '';
     syncBadge.textContent = '本地模式';
@@ -107,21 +109,8 @@ async function loadTasksFromCloud() {
   const { data: goals, error: gErr } = await supabase.from('goals').select('*').eq('user_id', userId);
   if (gErr) {
     console.error('load goals error:', gErr);
-    // Fallback to localStorage
-    tasks = loadTasks();
+    tasks = [];
     return;
-  }
-  // If cloud is empty, try localStorage fallback (skip demo data)
-  if (!goals || goals.length === 0) {
-    const localTasks = loadTasks();
-    const realTasks = (localTasks || []).filter(t => !t.isDemo);
-    if (realTasks.length > 0) {
-      cloudTaskIds = new Set();
-      tasks = realTasks;
-      // Upload local data to cloud
-      await saveTasksToCloud(realTasks);
-      return;
-    }
   }
   // Load todos
   const { data: todos, error: tErr } = await supabase.from('todos').select('*').eq('user_id', userId);
@@ -368,7 +357,7 @@ function getInitialStatus(startDate) {
 }
 
 // ===== STATE =====
-let tasks = loadTasks();
+let tasks = [];
 let cloudTaskIds = new Set();
 
 let currentFormType = 'progress';

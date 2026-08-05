@@ -644,11 +644,7 @@ async function appInit() {
   await initSupabaseAuth();
   updateUserBar();
   if (!isCloudMode) {
-    tasks = loadTasks();
-  }
-  if (tasks.length === 0 && !isCloudMode) {
-    // Demo data — only in local mode
-    initDemoData();
+    tasks = [];
   }
   refreshAll();
   setInterval(checkNotifications, 30 * 60 * 1000);
@@ -659,77 +655,6 @@ async function appInit() {
       refreshAll();
     }
   }, 60000);
-}
-
-function initDemoData() {
-  const today = fmtLocalDay(new Date());
-  const d3 = fmtLocalDay(new Date(Date.now()+3*86400000));
-  const d7 = fmtLocalDay(new Date(Date.now()+7*86400000));
-  const d14 = fmtLocalDay(new Date(Date.now()+14*86400000));
-  const yesterday = new Date(Date.now()-86400000).toISOString();
-  const yesterday2 = new Date(Date.now()-2*86400000).toISOString();
-  const yday = fmtLocalDay(new Date(Date.now()-86400000));
-
-  tasks = [
-    {
-      id: uid(), type: 'checkin', title: '每周锻炼3次', desc: '跑步、跳绳或健身，每次至少30分钟',
-      frequency: 'weekly', targetCount: 3, priority: 'p0',
-      startDate: today, endDate: d14, status: 'active',
-      tags: ['运动'],
-      checkins: [yesterday, yesterday2],
-      notes: [{text:'这周坚持得不错！跑步配速有提升，继续加油。', date: yesterday}],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: uid(), type: 'checkin', title: '每天阅读30分钟', desc: '保持阅读习惯，不限书籍类型',
-      frequency: 'daily', targetCount: 1, priority: 'p2',
-      startDate: today, endDate: d14, status: 'pending',
-      tags: ['阅读', '学习'],
-      checkins: [],
-      notes: [],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: uid(), type: 'progress', title: '完成Q3电商选品方案', desc: '分析下半年趋势品类，确定主力选品清单及供应链方案',
-      startDate: today, endDate: d3, priority: 'p0', progress: 60, status: 'active',
-      tags: ['工作'],
-      notes: [{text:'初步筛选了3个品类方向：家居收纳、户外露营、宠物用品。需要进一步对比利润空间和竞争强度。', date: yesterday}],
-      todos: [
-        { id: uid(), text: '调研家居收纳品类竞品', done: true, date: yday, createdAt: yesterday },
-        { id: uid(), text: '整理宠物用品利润对比表', done: false, date: yday, createdAt: yesterday },
-        { id: uid(), text: '联系3家潜在供应商', done: false, date: today, createdAt: new Date().toISOString() }
-      ],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: uid(), type: 'progress', title: '发布5条短视频内容', desc: '围绕选品方向制作种草类短视频，测试流量反馈',
-      startDate: today, endDate: d7, priority: 'p0', progress: 20, status: 'pending',
-      tags: ['工作', '创作'],
-      notes: [],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: uid(), type: 'checkin', title: '每天早上冥想10分钟', desc: '用冥想开始新的一天，提升专注力',
-      frequency: 'daily', targetCount: 1, priority: 'p3',
-      startDate: today, endDate: d14, status: 'active',
-      tags: ['运动', '生活'],
-      checkins: [new Date().toISOString()],
-      notes: [],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: uid(), type: 'progress', title: '搭建自媒体素材库', desc: '整理常用的无版权图片、BGM、模板，形成高效素材体系',
-      startDate: fmtLocalDay(new Date(Date.now()-14*86400000)),
-      endDate: fmtLocalDay(new Date(Date.now()-2*86400000)),
-      tags: ['创作'],
-      priority: 'p3', progress: 100, status: 'completed',
-      notes: [{text:'素材库分类很清晰了，以后做内容效率能提升不少。', date: new Date(Date.now()-2*86400000).toISOString()}],
-      createdAt: new Date(Date.now()-14*86400000).toISOString()
-    }
-  ];
-  tasks.forEach(t => { t.isDemo = true; });
-  saveTasks(tasks);
-  refreshAll();
 }
 
 console.log('🤖 cc的小助理 已就绪！');
