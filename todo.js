@@ -527,12 +527,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===== TAG FILTER DROPDOWN =====
+function closeTagDropdown() {
+  document.getElementById('tagDropdown').classList.remove('open');
+  document.getElementById('tagFilterTrigger').classList.remove('open');
+}
+
 function toggleTagDropdown() {
   const dd = document.getElementById('tagDropdown');
   const trigger = document.getElementById('tagFilterTrigger');
   if (dd.classList.contains('open')) {
-    dd.classList.remove('open');
-    trigger.classList.remove('open');
+    closeTagDropdown();
   } else {
     renderTagDropdown();
     dd.classList.add('open');
@@ -567,15 +571,14 @@ function renderTagDropdown() {
   });
 
   html += '<div class="tag-dropdown-divider"></div>';
-  html += '<div class="tag-dropdown-item tag-dropdown-manage" onclick="openTagManager()"><span class="dot" style="background:var(--text3);font-size:12px;display:flex;align-items:center;justify-content:center;">⚙</span>管理标签</div>';
+  html += '<div class="tag-dropdown-item tag-dropdown-manage" onclick="closeTagDropdown();openTagManager()"><span class="dot" style="background:var(--text3);font-size:12px;display:flex;align-items:center;justify-content:center;">⚙</span>管理标签</div>';
 
   dd.innerHTML = html;
 }
 
 function selectTag(tag) {
   currentTag = tag;
-  document.getElementById('tagDropdown').classList.remove('open');
-  document.getElementById('tagFilterTrigger').classList.remove('open');
+  closeTagDropdown();
   renderQuickCheckin();
   renderTodayTodos();
   renderTaskList();
