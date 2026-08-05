@@ -1,5 +1,4 @@
 // ===== RENDER =====
-function updateDateTime() {}
 
 function renderQuickCheckin() {
   let checkinTasks = getCheckinTasks();
@@ -164,11 +163,12 @@ function toggleStatusFromList(taskId, newStatus) {
 }
 
 function deleteTaskFromList(taskId) {
-  if (!confirm('确定要删除这个目标吗？相关的打卡记录和笔记也会一并删除。')) return;
-  tasks = tasks.filter(t => t.id !== taskId);
-  saveTasks(tasks);
-  refreshAll();
-  showToast('目标已删除');
+  showConfirm('确定要删除这个目标吗？相关的打卡记录和笔记也会一并删除。', () => {
+    tasks = tasks.filter(t => t.id !== taskId);
+    saveTasks(tasks);
+    refreshAll();
+    showToast('目标已删除');
+  });
 }
 
 function renderProgressCard(t) {
@@ -237,6 +237,24 @@ function renderCheckinCard(t) {
 
 // ===== HELPERS =====
 function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escJs(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function showConfirm(message, onOk) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="confirm-text">${escHtml(message)}</div>
+      <div class="confirm-actions">
+        <button class="btn btn-outline btn-sm" id="confirmCancel">取消</button>
+        <button class="btn btn-danger btn-sm" id="confirmOk">确定</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('#confirmCancel').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('#confirmOk').addEventListener('click', () => { close(); onOk(); });
+}
 function updateTargetCountMax() {
   const freq = document.getElementById('taskFrequency').value;
   const maxByFreq = { daily: 1, weekly: 7, monthly: 31, quarterly: 92, yearly: 366 };
@@ -307,7 +325,7 @@ function renderTagPicker() {
   }
   emptyHint.style.display = 'none';
   container.innerHTML = allKnownTags.map(tag => `
-    <span class="tag-picker-chip${formTag === tag ? ' selected' : ''}" onclick="toggleFormTag('${escHtml(tag)}')" style="${formTag === tag ? 'background:' + getTagColor(tag) + ';border-color:' + getTagColor(tag) : ''}">${escHtml(tag)}</span>
+    <span class="tag-picker-chip${formTag === tag ? ' selected' : ''}" onclick="toggleFormTag('${escJs(tag)}')" style="${formTag === tag ? 'background:' + getTagColor(tag) + ';border-color:' + getTagColor(tag) : ''}">${escHtml(tag)}</span>
   `).join('') + '<span class="tag-manage-link" style="margin-left:4px" onclick="openTagManager()">⚙️</span>';
 }
 
@@ -344,19 +362,19 @@ function renderTagManager() {
     return `
     <div class="tag-mgmt-item" id="tagMgmt-${i}">
       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
-        <span class="tag-color-dot" style="background:${tc}" onclick="toggleColorPicker(${i},'${escHtml(tag)}')" title="更改颜色"></span>
+        <span class="tag-color-dot" style="background:${tc}" onclick="toggleColorPicker(${i},'${escJs(tag)}')" title="更改颜色"></span>
         <div style="min-width:0;">
           <span class="tag-mgmt-name" id="tagMgmtName-${i}">${escHtml(tag)}</span>
           ${counts[tag] ? `<span class="tag-mgmt-count">${counts[tag]}个目标</span>` : ''}
         </div>
       </div>
       <div class="tag-mgmt-actions">
-        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="startRenameTag(${i},'${escHtml(tag)}')">✏️</button>
-        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;color:var(--danger);" onclick="deleteTag(${i},'${escHtml(tag)}')">🗑️</button>
+        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="startRenameTag(${i},'${escJs(tag)}')">✏️</button>
+        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;color:var(--danger);" onclick="deleteTag(${i},'${escJs(tag)}')">🗑️</button>
       </div>
     </div>
     <div class="tag-color-palette" id="palette-${i}" style="display:none">
-      ${TAG_COLORS.map(c => `<span class="tag-color-option${tc===c?' selected':''}" style="background:${c}" onclick="setTagColor('${escHtml(tag)}','${c}')"></span>`).join('')}
+      ${TAG_COLORS.map(c => `<span class="tag-color-option${tc===c?' selected':''}" style="background:${c}" onclick="setTagColor('${escJs(tag)}','${c}')"></span>`).join('')}
     </div>`;
   }).join('');
 }
@@ -409,18 +427,19 @@ function confirmRenameTag(idx, oldName) {
 }
 
 function deleteTag(idx, tag) {
-  if (!confirm(`确定删除标签「${tag}」？将从所有目标中移除此标签。`)) return;
-  allKnownTags = allKnownTags.filter(t => t !== tag);
-  saveTags();
-  // Remove from all tasks
-  tasks.forEach(t => { if (t.tags) t.tags = t.tags.filter(tg => tg !== tag); });
-  saveTasks(tasks);
-  if (formTag === tag) formTag = '';
-  delete tagColors[tag]; saveTagColors();
-  renderTagManager();
-  renderTagPicker();
-  renderTaskList();
-  showToast('标签已删除 🗑️');
+  showConfirm(`确定删除标签「${tag}」？将从所有目标中移除此标签。`, () => {
+    allKnownTags = allKnownTags.filter(t => t !== tag);
+    saveTags();
+    // Remove from all tasks
+    tasks.forEach(t => { if (t.tags) t.tags = t.tags.filter(tg => tg !== tag); });
+    saveTasks(tasks);
+    if (formTag === tag) formTag = '';
+    delete tagColors[tag]; saveTagColors();
+    renderTagManager();
+    renderTagPicker();
+    renderTaskList();
+    showToast('标签已删除 🗑️');
+  });
 }
 
 // ===== COLOR PICKER =====
@@ -690,12 +709,13 @@ function saveTask() {
 }
 
 function deleteTask(taskId) {
-  if (!confirm('确定要删除这个目标吗？相关的打卡记录和笔记也会一并删除。')) return;
-  tasks = tasks.filter(t => t.id !== taskId);
-  saveTasks(tasks);
-  closeDetailPage();
-  refreshAll();
-  showToast('目标已删除');
+  showConfirm('确定要删除这个目标吗？相关的打卡记录和笔记也会一并删除。', () => {
+    tasks = tasks.filter(t => t.id !== taskId);
+    saveTasks(tasks);
+    closeDetailPage();
+    refreshAll();
+    showToast('目标已删除');
+  });
 }
 
 function toggleStatus(taskId, newStatus) {
@@ -790,15 +810,16 @@ function addNote(taskId) {
 }
 
 function deleteNote(taskId, noteDate, noteText) {
-  if (!confirm('确定要删除这条笔记吗？')) return;
-  const t = tasks.find(x => x.id === taskId);
-  if (!t || !t.notes) return;
-  const idx = t.notes.findIndex(n => n.date === noteDate && n.text === noteText);
-  if (idx === -1) return;
-  t.notes.splice(idx, 1);
-  saveTasks(tasks);
-  refreshAll();
-  openDetail(taskId);
+  showConfirm('确定要删除这条笔记吗？', () => {
+    const t = tasks.find(x => x.id === taskId);
+    if (!t || !t.notes) return;
+    const idx = t.notes.findIndex(n => n.date === noteDate && n.text === noteText);
+    if (idx === -1) return;
+    t.notes.splice(idx, 1);
+    saveTasks(tasks);
+    refreshAll();
+    openDetail(taskId);
+  });
 }
 
 // ===== DETAIL MODAL =====

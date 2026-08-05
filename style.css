@@ -555,6 +555,10 @@ body { padding-bottom: 100px; }
 .todo-action-popup .popup-item.danger { color: var(--danger); }
 .todo-add-row { display: flex; gap: 8px; margin-top: 10px; }
 .todo-add-row input { flex: 1; }
+.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.confirm-box { background: #fff; border-radius: 10px; max-width: 320px; width: 100%; padding: 18px 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+.confirm-text { font-size: 14px; color: var(--text); line-height: 1.6; margin-bottom: 16px; word-break: break-word; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .todo-history-title { font-size: 12px; font-weight: 500; color: var(--text3); margin-top: 16px; margin-bottom: 6px; }
 
 /* Today Todos */

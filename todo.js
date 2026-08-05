@@ -235,14 +235,15 @@ function toggleTodoToday(taskId, todoId) {
 }
 
 function deleteTodo(taskId, todoId) {
-  if (!confirm('确定要删除这个待办吗？')) return;
-  const t = tasks.find(x => x.id === taskId);
-  if (!t || !t.todos) return;
-  removeTodoById(t.todos, todoId);
-  saveTasks(tasks);
-  closeTodoMenu();
-  openDetail(taskId);
-  showToast('待办已删除');
+  showConfirm('确定要删除这个待办吗？', () => {
+    const t = tasks.find(x => x.id === taskId);
+    if (!t || !t.todos) return;
+    removeTodoById(t.todos, todoId);
+    saveTasks(tasks);
+    closeTodoMenu();
+    openDetail(taskId);
+    showToast('待办已删除');
+  });
 }
 
 function toggleTodoMenu(e, taskId, todoId) {
@@ -704,7 +705,8 @@ async function appInit() {
   setInterval(checkNotifications, 30 * 60 * 1000);
   // Auto-sync from cloud every 60s
   setInterval(async () => {
-    if (isCloudMode && currentUser) {
+    const editing = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('todo-inline-input');
+    if (isCloudMode && currentUser && !cloudSyncing && !editing) {
       await loadTasksFromCloud();
       refreshAll();
     }

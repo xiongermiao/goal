@@ -50,6 +50,7 @@ async function handleRegister() {
   if (error) { errorEl.textContent = error.message; return; }
   currentUser = data.user;
   isCloudMode = true;
+  await loadTasksFromCloud();
   hideLoginPanel();
   updateUserBar();
   refreshAll();
@@ -179,10 +180,12 @@ function buildTodoTree(todos) {
 async function saveTasksToCloud(tasksArr) {
   if (!supabase || !currentUser) return;
   const userId = currentUser.id;
+  cloudSyncing = true;
   // 删除云端中本地已删除的目标（含其子任务/打卡/笔记）
   const currentIds = new Set(tasksArr.map(t => t.id));
   const deletedIds = [...cloudTaskIds].filter(id => !currentIds.has(id));
   let deleteOk = true;
+  let childError = false;
   for (const delId of deletedIds) {
     await supabase.from('todos').delete().eq('goal_id', delId);
     await supabase.from('checkins').delete().eq('goal_id', delId);
@@ -211,30 +214,32 @@ async function saveTasksToCloud(tasksArr) {
       status: t.status || 'active'
     };
     const { error: gErr } = await supabase.from('goals').upsert(goalRow, { onConflict: 'id' });
-    if (gErr) { console.error('云端保存目标失败:', gErr); showToast('云端保存失败，请检查网络'); return; }
+    if (gErr) { console.error('云端保存目标失败:', gErr); showToast('云端保存失败，请检查网络'); cloudSyncing = false; return; }
     // Sync todos（先清空云端该目标的子任务，再按本地实际内容写入）
     await supabase.from('todos').delete().eq('goal_id', t.id);
     if (t.todos && t.todos.length > 0) {
       const flatTodos = flattenTodos(t.todos, t.id, userId);
       const { error: tiErr } = await supabase.from('todos').insert(flatTodos);
-      if (tiErr) console.error('云端保存子任务失败:', tiErr);
+      if (tiErr) { console.error('云端保存子任务失败:', tiErr); childError = true; }
     }
     // Sync checkins
     await supabase.from('checkins').delete().eq('goal_id', t.id);
     if (t.checkins && t.checkins.length > 0) {
       const checkinRows = t.checkins.map(c => ({ goal_id: t.id, user_id: userId, created_at: c }));
       const { error: ciErr } = await supabase.from('checkins').insert(checkinRows);
-      if (ciErr) console.error('云端保存打卡记录失败:', ciErr);
+      if (ciErr) { console.error('云端保存打卡记录失败:', ciErr); childError = true; }
     }
     // Sync notes
     await supabase.from('notes').delete().eq('goal_id', t.id);
     if (t.notes && t.notes.length > 0) {
       const noteRows = t.notes.map(n => ({ goal_id: t.id, user_id: userId, date: n.date || fmtLocalDay(new Date()), content: n.text }));
       const { error: niErr } = await supabase.from('notes').insert(noteRows);
-      if (niErr) console.error('云端保存笔记失败:', niErr);
+      if (niErr) { console.error('云端保存笔记失败:', niErr); childError = true; }
     }
   }
   if (deleteOk) cloudTaskIds = currentIds;
+  cloudSyncing = false;
+  if (childError) showToast('部分数据同步失败，请检查网络');
 }
 
 function flattenTodos(todos, goalId, userId, parentId = null, result = [], order = 0) {
@@ -246,7 +251,7 @@ function flattenTodos(todos, goalId, userId, parentId = null, result = [], order
       parent_id: parentId,
       text: todo.text,
       completed: !!todo.done,
-      completed_date: todo.done ? fmtLocalDay(new Date()) : null,
+      completed_date: todo.completedAt ? fmtLocalDay(new Date(todo.completedAt)) : (todo.done ? fmtLocalDay(new Date()) : null),
       sort_order: order + i
     });
     if (todo.children && todo.children.length > 0) {
@@ -256,14 +261,10 @@ function flattenTodos(todos, goalId, userId, parentId = null, result = [], order
   return result;
 }
 
-// ===== DATA LAYER =====
-const STORAGE_KEY = 'cc_assistant_data';
-
 async function saveTasks(tasksArr) {
   if (isCloudMode && currentUser) {
     await saveTasksToCloud(tasksArr);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasksArr));
 }
 
 // Tag storage
@@ -288,13 +289,13 @@ function loadTagColors() {
   catch(e) { return {}; }
 }
 function saveTagColors() { localStorage.setItem(TAG_COLORS_KEY, JSON.stringify(tagColors)); }
-function getNextTagColor() {
-  const used = Object.values(tagColors);
-  for (let c of TAG_COLORS) { if (!used.includes(c)) return c; }
-  return TAG_COLORS[Object.keys(tagColors).length % TAG_COLORS.length];
-}
 function getTagColor(tag) {
-  if (!tagColors[tag]) { tagColors[tag] = getNextTagColor(); saveTagColors(); }
+  if (!tagColors[tag]) {
+    let h = 0;
+    for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+    tagColors[tag] = TAG_COLORS[h % TAG_COLORS.length];
+    saveTagColors();
+  }
   return tagColors[tag];
 }
 function getTaskColor(t) {
@@ -319,6 +320,7 @@ function getInitialStatus(startDate) {
 // ===== STATE =====
 let tasks = [];
 let cloudTaskIds = new Set();
+let cloudSyncing = false;
 
 let currentFormType = 'progress';
 let currentTag = '';
