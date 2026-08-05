@@ -464,6 +464,7 @@ function toggleColorPicker(idx, tag) {
 function setTagColor(tag, color) {
   tagColors[tag] = color;
   saveTagColors();
+  saveTagColorsToCloud();
   openColorPickerIdx = -1;
   renderTagManager();
   renderTagPicker();

@@ -64,6 +64,8 @@ async function handleLogout() {
   isCloudMode = false;
   tasks = [];
   cloudTaskIds = new Set();
+  tagColors = {};
+  saveTagColors();
   updateUserBar();
   refreshAll();
   showToast('已登出');
@@ -103,16 +105,18 @@ async function loadTasksFromCloud() {
   if (!supabase || !currentUser) return;
   const userId = currentUser.id;
   // Load goals/todos/checkins/notes in parallel to speed up first render
-  const [goalsRes, todosRes, checkinsRes, notesRes] = await Promise.all([
+  const [goalsRes, todosRes, checkinsRes, notesRes, prefsRes] = await Promise.all([
     supabase.from('goals').select('*').eq('user_id', userId),
     supabase.from('todos').select('*').eq('user_id', userId),
     supabase.from('checkins').select('*').eq('user_id', userId),
-    supabase.from('notes').select('*').eq('user_id', userId)
+    supabase.from('notes').select('*').eq('user_id', userId),
+    supabase.from('user_prefs').select('tag_colors').eq('user_id', userId)
   ]);
   const { data: goals, error: gErr } = goalsRes;
   const { data: todos, error: tErr } = todosRes;
   const { data: checkins, error: cErr } = checkinsRes;
   const { data: notes, error: nErr } = notesRes;
+  const { data: prefs, error: pErr } = prefsRes;
   if (gErr) {
     console.error('load goals error:', gErr);
     tasks = [];
@@ -121,6 +125,7 @@ async function loadTasksFromCloud() {
   if (tErr) { console.error('load todos error:', tErr); }
   if (cErr) { console.error('load checkins error:', cErr); }
   if (nErr) { console.error('load notes error:', nErr); }
+  if (pErr) { console.error('load prefs error:', pErr); }
 
   // Assemble tasks
   tasks = (goals || []).map(g => {
@@ -147,6 +152,12 @@ async function loadTasksFromCloud() {
     };
   });
   cloudTaskIds = new Set((goals || []).map(g => g.id));
+  // 合并云端标签颜色（云端优先）
+  const prefsColors = (prefs && prefs[0] && prefs[0].tag_colors) || {};
+  if (prefsColors && typeof prefsColors === 'object') {
+    Object.keys(prefsColors).forEach(k => { tagColors[k] = prefsColors[k]; });
+    saveTagColors();
+  }
 }
 
 function buildTodoTree(todos) {
@@ -289,6 +300,14 @@ function loadTagColors() {
   catch(e) { return {}; }
 }
 function saveTagColors() { localStorage.setItem(TAG_COLORS_KEY, JSON.stringify(tagColors)); }
+async function saveTagColorsToCloud() {
+  if (!supabase || !currentUser) return;
+  const { error } = await supabase.from('user_prefs').upsert(
+    { user_id: currentUser.id, tag_colors: tagColors, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  );
+  if (error) console.error('云端保存标签颜色失败:', error);
+}
 function getTagColor(tag) {
   if (!tagColors[tag]) {
     let h = 0;
