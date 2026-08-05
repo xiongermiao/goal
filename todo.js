@@ -139,14 +139,44 @@ function addSubTodo(taskId, parentId) {
   if (!parent) return;
   const depth = getTodoDepth(t.todos, parentId);
   if (depth >= 2) { showToast('最多支持3级待办'); return; }
-  const text = prompt('输入子任务名称：');
-  if (!text || !text.trim()) return;
-  if (!t.todos) t.todos = [];
-  if (!parent.children) parent.children = [];
-  parent.children.push({ id: uid(), text: text.trim(), done: false, date: fmtLocalDay(new Date()), createdAt: new Date().toISOString() });
-  saveTasks(tasks);
-  openDetail(taskId);
-  showToast('子任务已添加 ✅');
+  const item = document.querySelector(`.todo-item[data-todoid="${parentId}"]`);
+  if (!item) { showToast('请刷新后重试'); return; }
+  const existing = item.querySelector('.todo-inline-input');
+  if (existing) { existing.remove(); }
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'todo-inline-input todo-sub-input';
+  input.placeholder = '输入子任务名称，回车确认';
+  input.maxLength = 200;
+  const childrenWrap = item.nextElementSibling && item.nextElementSibling.classList.contains('todo-children') ? item.nextElementSibling : null;
+  if (childrenWrap) {
+    item.parentNode.insertBefore(input, childrenWrap);
+  } else {
+    item.after(input);
+  }
+  input.focus();
+  let done = false;
+  const commit = (save) => {
+    if (done) return;
+    done = true;
+    const val = input.value.trim();
+    if (save && val) {
+      if (!t.todos) t.todos = [];
+      if (!parent.children) parent.children = [];
+      parent.children.push({ id: uid(), text: val, done: false, date: fmtLocalDay(new Date()), createdAt: new Date().toISOString() });
+      saveTasks(tasks);
+      openDetail(taskId);
+      showToast('子任务已添加 ✅');
+    } else {
+      openDetail(taskId);
+    }
+  };
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') commit(true);
+    else if (e.key === 'Escape') commit(false);
+  });
+  input.addEventListener('blur', () => commit(true));
 }
 
 function getTodoDepth(todos, id, depth) {
@@ -246,13 +276,37 @@ function renameTodo(taskId, todoId) {
   if (!t || !t.todos) return;
   const todo = findTodoById(t.todos, todoId);
   if (!todo) return;
-  const newName = prompt('重命名待办', todo.text);
-  if (newName !== null && newName.trim()) {
-    todo.text = newName.trim();
-    saveTasks(tasks);
-    openDetail(taskId);
-    showToast('已重命名');
-  }
+  const item = document.querySelector(`.todo-item[data-todoid="${todoId}"]`);
+  const textEl = item ? item.querySelector('.todo-text') : null;
+  if (!textEl) { showToast('请刷新后重试'); return; }
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'todo-inline-input';
+  input.value = todo.text;
+  input.maxLength = 200;
+  textEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const commit = (save) => {
+    if (done) return;
+    done = true;
+    const val = input.value.trim();
+    if (save && val && val !== todo.text) {
+      todo.text = val;
+      saveTasks(tasks);
+      openDetail(taskId);
+      showToast('已重命名');
+    } else {
+      openDetail(taskId);
+    }
+  };
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') commit(true);
+    else if (e.key === 'Escape') commit(false);
+  });
+  input.addEventListener('blur', () => commit(true));
 }
 
 // ===== FILTER & SEARCH =====
