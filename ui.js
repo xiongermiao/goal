@@ -605,6 +605,7 @@ function saveTask() {
   const type = document.getElementById('taskEditType').value || currentFormType;
 
   if (!title) { showToast('请输入目标名称'); return; }
+  let createdId = null;
 
   if (type === 'checkin') {
     const frequency = document.getElementById('taskFrequency').value;
@@ -633,14 +634,16 @@ function saveTask() {
         t.tags = formTag ? [formTag] : [];
       }
     } else {
+      const newId = uid();
       tasks.push({
-        id: uid(), title, desc, type: 'checkin',
+        id: newId, title, desc, type: 'checkin',
         frequency, targetCount, priority,
         startDate, endDate,
         tags: formTag ? [formTag] : [],
         status: getInitialStatus(startDate), checkins: [], notes: [],
         createdAt: new Date().toISOString()
       });
+      createdId = newId;
     }
   } else {
     const startDate = document.getElementById('taskStart').value;
@@ -660,13 +663,15 @@ function saveTask() {
         t.tags = formTag ? [formTag] : [];
       }
     } else {
+      const newId = uid();
       tasks.push({
-        id: uid(), title, desc, type: 'progress',
+        id: newId, title, desc, type: 'progress',
         startDate, endDate, priority, progress,
         tags: formTag ? [formTag] : [],
         status: getInitialStatus(startDate), notes: [],
         createdAt: new Date().toISOString()
       });
+      createdId = newId;
     }
   }
 
@@ -677,6 +682,10 @@ function saveTask() {
   // If detail page is open, refresh it
   if (editId && document.getElementById('panelDetail').classList.contains('active')) {
     openDetail(editId);
+  }
+  // 新建目标成功后直接进入详情页
+  if (createdId) {
+    openDetail(createdId);
   }
 }
 
@@ -1056,4 +1065,3 @@ function notesSection(t, notes) {
 }
 
 function formatNoteDate(isoStr) { const d = new Date(isoStr); return d.toLocaleString('zh-CN', { month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit' }); }
-
