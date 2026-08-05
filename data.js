@@ -81,7 +81,6 @@ function updateUserBar() {
   const syncBadge = document.getElementById('syncBadge');
   const loginBtn = document.getElementById('loginBtn');
   const logoutBtn = document.getElementById('logoutBtn');
-  const uploadBtn = document.getElementById('uploadBtn');
   if (!bar) return;
   bar.style.display = 'flex';
   if (currentUser) {
@@ -90,15 +89,12 @@ function updateUserBar() {
     syncBadge.className = 'sync-badge synced';
     loginBtn.style.display = 'none';
     logoutBtn.style.display = '';
-    const hasLocalData = (loadTasks() || []).some(t => !t.isDemo);
-    uploadBtn.style.display = hasLocalData ? '' : 'none';
   } else {
     emailText.textContent = '';
     syncBadge.textContent = '本地模式';
     syncBadge.className = 'sync-badge local';
     loginBtn.style.display = '';
     logoutBtn.style.display = 'none';
-    uploadBtn.style.display = 'none';
   }
 }
 
@@ -257,47 +253,8 @@ function flattenTodos(todos, goalId, userId, parentId = null, result = [], order
   return result;
 }
 
-async function uploadLocalToCloud() {
-  if (!currentUser) { showToast('请先登录'); return; }
-  const localTasks = (loadTasks() || []).filter(t => !t.isDemo);
-  if (localTasks.length === 0) { showToast('本地没有数据'); return; }
-  showToast('正在上传...');
-  await saveTasksToCloud(localTasks);
-  await loadTasksFromCloud();
-  refreshAll();
-  updateUserBar();
-  showToast('上传完成');
-}
-
 // ===== DATA LAYER =====
 const STORAGE_KEY = 'cc_assistant_data';
-const OLD_STORAGE_KEY = 'goal_tracker_data';
-
-function loadTasks() {
-  if (isCloudMode && tasks && tasks.length > 0) {
-    return tasks; // Already loaded from cloud
-  }
-  try {
-    let data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!data || !Array.isArray(data)) {
-      // Migrate old data
-      const oldData = localStorage.getItem(OLD_STORAGE_KEY);
-      if (oldData) {
-        const oldTasks = JSON.parse(oldData);
-        data = oldTasks.map(g => ({
-          ...g,
-          type: 'progress',
-          frequency: 'weekly',
-          targetCount: 3,
-          checkins: []
-        }));
-      } else {
-        data = [];
-      }
-    }
-    return data;
-  } catch(e) { return []; }
-}
 
 async function saveTasks(tasksArr) {
   if (isCloudMode && currentUser) {
