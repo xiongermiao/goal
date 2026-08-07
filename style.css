@@ -752,6 +752,7 @@ input[type="range"]::-webkit-slider-thumb {
   .quick-item { padding: 10px 12px; }
   .quick-item-badge { width: 32px; height: 32px; font-size: 13px; }
   .quick-item-badge.done { font-size: 16px; }
+  .todo-inline-input { font-size: 16px; }
 }
 
 /* ===== Login Panel ===== */
